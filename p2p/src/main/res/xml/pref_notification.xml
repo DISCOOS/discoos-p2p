@@ -1,0 +1,35 @@
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- A 'parent' preference, which enables/disables child preferences (below)
+         when checked/unchecked. -->
+    <SwitchPreference
+        android:defaultValue="true"
+        android:key="notifications_peer"
+        android:title="@string/pref_title_peer_notifications" />
+
+    <!--&lt;!&ndash; Allows the user to choose a ringtone in the 'notification' category. &ndash;&gt;-->
+    <!--&lt;!&ndash; NOTE: This preference will be enabled only when the checkbox above is checked. &ndash;&gt;-->
+    <!--&lt;!&ndash; NOTE: RingtonePreference's summary should be set to its value by the activity code. &ndash;&gt;-->
+    <!--<RingtonePreference-->
+        <!--android:defaultValue="content://settings/system/notification_sound"-->
+        <!--android:dependency="notifications_peer"-->
+        <!--android:key="notifications_peer_ringtone"-->
+        <!--android:ringtoneType="notification"-->
+        <!--android:title="@string/pref_title_ringtone" />-->
+
+    <!-- NOTE: This preference will be enabled only when the checkbox above is checked. -->
+    <SwitchPreference
+        android:defaultValue="true"
+        android:dependency="notifications_peer"
+        android:key="notifications_peer_ringtone"
+        android:title="@string/pref_title_ringtone" />
+
+
+    <!-- NOTE: This preference will be enabled only when the checkbox above is checked. -->
+    <SwitchPreference
+        android:defaultValue="true"
+        android:dependency="notifications_peer"
+        android:key="notifications_peer_vibrate"
+        android:title="@string/pref_title_vibrate" />
+
+</PreferenceScreen>

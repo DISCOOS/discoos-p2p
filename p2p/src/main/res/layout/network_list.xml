@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.v7.widget.RecyclerView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/network_list"
+    android:name="org.discoos.p2p.NetworkList"
+    app:layoutManager="LinearLayoutManager"
+    tools:context=".activity.NetworkListActivity"
+    tools:listitem="@layout/network_list_content"
+    tools:showIn="@layout/activity_network_list"
+    style="@style/List"/>
