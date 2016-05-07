@@ -41,6 +41,7 @@ import org.discoos.p2p.PeerInfo;
 import org.discoos.signal.Dispatcher;
 import org.discoos.signal.Observer;
 
+import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -58,6 +59,8 @@ import java.util.Set;
 public class P2PNetworkImpl implements P2PNetwork, Serializable {
 
     private static final String TAG = "P2PNetwork";
+
+    static final long serialVersionUID = 1L;
 
     final String mName;
 
@@ -78,38 +81,57 @@ public class P2PNetworkImpl implements P2PNetwork, Serializable {
     public P2PNetworkImpl(String name, short port) {
         mName = name;
         mPort = port;
-        mDispatcher = P2P.getDispatcher();
-        mDispatcher.add(P2P.INIT, new Observer() {
-            @Override
-            public void handle(Object signal, Object observable) {
-                log("INIT", "peers=" + clear());
-                mDispatcher.schedule(P2P.CHANGED, signal);
-            }
-        }).add(P2P.JOINED, new Observer() {
-            @Override
-            public void handle(Object signal, Object observable) {
-                log("JOINED", join(observable));
-                mDispatcher.schedule(P2P.CHANGED, signal);
-            }
-        }).add(P2P.ALIVE, new Observer() {
-            @Override
-            public void handle(Object signal, Object observable) {
-                log("ALIVE", join(observable));
-                mDispatcher.schedule(P2P.CHANGED, signal);
-            }
-        }).add(P2P.TIMEOUT, new Observer() {
-            @Override
-            public void handle(Object signal, Object observable) {
-                log("TIMEOUT", join(observable));
-                mDispatcher.schedule(P2P.CHANGED, signal);
-            }
-        }).add(P2P.LEAVE, new Observer() {
-            @Override
-            public void handle(Object signal, Object observable) {
-                log("LEAVE", leave(observable));
-                mDispatcher.schedule(P2P.CHANGED, signal);
-            }
-        });
+        register();
+    }
+
+    /**
+     * Inovked by ObjectInputStream during deserialization.
+     * @return
+     * @throws ObjectStreamException
+     */
+    Object readResolve() throws ObjectStreamException {
+        register();
+        return this;
+    }
+
+    /**
+     *
+     */
+    public void register() {
+        if(mDispatcher == null) {
+            mDispatcher = P2P.getDispatcher();
+            mDispatcher.add(P2P.INIT, new Observer() {
+                @Override
+                public void handle(Object signal, Object observable) {
+                    log("INIT", "peers=" + clear());
+                    mDispatcher.schedule(P2P.CHANGED, signal);
+                }
+            }).add(P2P.JOINED, new Observer() {
+                @Override
+                public void handle(Object signal, Object observable) {
+                    log("JOINED", join(observable));
+                    mDispatcher.schedule(P2P.CHANGED, signal);
+                }
+            }).add(P2P.ALIVE, new Observer() {
+                @Override
+                public void handle(Object signal, Object observable) {
+                    log("ALIVE", join(observable));
+                    mDispatcher.schedule(P2P.CHANGED, signal);
+                }
+            }).add(P2P.TIMEOUT, new Observer() {
+                @Override
+                public void handle(Object signal, Object observable) {
+                    log("TIMEOUT", join(observable));
+                    mDispatcher.schedule(P2P.CHANGED, signal);
+                }
+            }).add(P2P.LEAVE, new Observer() {
+                @Override
+                public void handle(Object signal, Object observable) {
+                    log("LEAVE", leave(observable));
+                    mDispatcher.schedule(P2P.CHANGED, signal);
+                }
+            });
+        }
     }
 
     @Override
