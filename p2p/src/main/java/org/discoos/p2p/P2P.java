@@ -27,6 +27,9 @@
  */
 package org.discoos.p2p;
 
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+
 import org.alljoyn.bus.BusAttachment;
 import org.discoos.p2p.PeerInfo;
 import org.discoos.signal.Dispatcher;
@@ -146,6 +149,20 @@ public class P2P {
      */
     public static File getCacheDir() {
         return getApplication().getExternalCacheDir();
+    }
+
+    /**
+     * Join P2P network
+     *
+     * @param name P2P network name (well-known bus name)
+     * @param port P2P network port (bus attachment port)
+     * @param label P2P network label (used as title in list and detail views)
+     *
+     * @return P2PNetwork Network instance if joined, false otherwise.
+     */
+    @Nullable
+    public static P2PNetwork join(String name, int port, String label) {
+        return getApplication().join(name, port, label);
     }
 
 }

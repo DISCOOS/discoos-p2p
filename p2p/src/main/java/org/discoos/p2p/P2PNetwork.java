@@ -38,6 +38,10 @@ public interface P2PNetwork {
 
     short getPort();
 
+    String getLabel();
+
+    void setLabel(String label);
+
     PeerInfo getPeer(String id);
 
     PeerInfo getPeer(int position);

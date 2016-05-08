@@ -1,28 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
-    style="@style/List.Item">
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="horizontal"
+    style="@style/List.Item"
+    android:layout_height="wrap_content"
+    android:layout_width="match_parent">
 
-    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    <TextView
+        android:id="@+id/network_label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:layout_marginRight="@dimen/text_margin"
+        android:textAppearance="?attr/textAppearanceListItem"
+        android:text="Network"
+        android:layout_centerVertical="true" />
 
-        <TextView
-            android:id="@+id/network_name"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginRight="@dimen/text_margin"
-            android:textAppearance="?attr/textAppearanceListItem"
-            android:autoText="false" />
+    <TextView
+        android:id="@+id/network_peers"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginRight="@dimen/text_margin"
+        android:textAppearance="?attr/textAppearanceListItem"
+        android:text="Peer1, Peer2"
+        android:layout_toEndOf="@id/network_label"
+        android:layout_centerVertical="true" />
 
-        <TextView
-            android:id="@+id/network_peers"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textAppearance="?attr/textAppearanceListItem"
-            android:autoText="false" />
+    <ImageButton
+        android:id="@+id/network_menu"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:clickable="true"
+        android:layout_alignParentEnd="true"
+        android:background="@drawable/list_item_button"
+        android:src="@drawable/dots_vertical"
+        android:paddingStart="8dp" />
 
-    </LinearLayout>
-
-</LinearLayout>
+</RelativeLayout>

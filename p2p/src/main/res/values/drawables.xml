@@ -1,6 +1,6 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
     <item name="ic_menu_compass" type="drawable">@android:drawable/ic_menu_compass</item>
-    <item name="ic_menu_camera" type="drawable">@android:drawable/ic_menu_compass</item>
+    <item name="ic_menu_camera" type="drawable">@android:drawable/ic_menu_camera</item>
     <item name="ic_menu_gallery" type="drawable">@android:drawable/ic_menu_gallery</item>
     <item name="ic_menu_slideshow" type="drawable">@android:drawable/ic_menu_slideshow</item>
     <item name="ic_menu_manage" type="drawable">@android:drawable/ic_menu_manage</item>
@@ -8,4 +8,5 @@
     <item name="ic_menu_send" type="drawable">@android:drawable/ic_menu_send</item>
     <item name="ic_menu_connection" type="drawable">@drawable/ic_menu_connection</item>
     <item name="ic_menu_logs" type="drawable">@drawable/ic_menu_log_file_format</item>
+    <item name="ic_menu_overflow" type="drawable">@drawable/ic_action_overflow</item>
 </resources>

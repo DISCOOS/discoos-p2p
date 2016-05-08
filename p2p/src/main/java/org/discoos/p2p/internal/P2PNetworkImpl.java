@@ -62,11 +62,13 @@ public class P2PNetworkImpl implements P2PNetwork, Serializable {
 
     static final long serialVersionUID = 1L;
 
+    private transient Dispatcher mDispatcher;
+
     final String mName;
 
     final short mPort;
 
-    private transient Dispatcher mDispatcher;
+    String mLabel;
 
     /**
      * A array of peer ids.
@@ -78,9 +80,10 @@ public class P2PNetworkImpl implements P2PNetwork, Serializable {
      * @param name Network name
      * @param port Network port
      */
-    public P2PNetworkImpl(String name, short port) {
+    public P2PNetworkImpl(String name, short port, String label) {
         mName = name;
         mPort = port;
+        mLabel = label;
         register();
     }
 
@@ -142,6 +145,16 @@ public class P2PNetworkImpl implements P2PNetwork, Serializable {
     @Override
     public short getPort() {
         return mPort;
+    }
+
+    @Override
+    public String getLabel() {
+        return mLabel;
+    }
+
+    @Override
+    public void setLabel(String label) {
+        mLabel = label;
     }
 
     @Override

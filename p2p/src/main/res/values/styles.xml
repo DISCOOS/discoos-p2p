@@ -32,7 +32,11 @@
         <item name="android:layout_marginBottom">1dp</item>
         <item name="android:divider">@android:color/darker_gray</item>
         <item name="android:showDividers">end</item>
+    </style>
 
+
+    <style name="List.Item.Button" parent="Base.Widget.AppCompat.ImageButton">
+        <item name="android:background">@drawable/list_item_button</item>
     </style>
 
 

@@ -29,6 +29,7 @@ package org.discoos.p2p;
 
 import android.app.Application;
 import android.content.ComponentName;
+import android.support.annotation.Nullable;
 import android.util.Log;
 
 import org.discoos.p2p.internal.P2PAboutData;
@@ -112,7 +113,9 @@ public class P2PApplication extends Application implements Observable {
      */
     public void onCreate() {
         super.onCreate();
+
         Log.i(TAG, "onCreate()");
+
         mDispatcher.add(new Observer() {
             @Override
             public void handle(Object signal, Object observable) {
@@ -138,39 +141,6 @@ public class P2PApplication extends Application implements Observable {
 
     }
 
-    /**
-     * Join P2P network
-     *
-     * @param name P2P network name (well-known bus name)
-     * @param port P2P network port (bus attachment port)
-     */
-    private void join(String name, int port) {
-        join(new P2PNetworkImpl(name, (short)port));
-    }
-
-    /**
-     * Join P2P network
-     *
-     * @param network P2P network instance
-     */
-    private void join(P2PNetwork network) {
-        String name = network.getName();
-        short port = network.getPort();
-        mRunningService = P2PService.join(name, port);
-        if (mRunningService == null) {
-            String msg = String.format("Failed to join network %s@%s", name, port);
-            Log.i(TAG, msg);
-        } else if(!mNetworkMap.containsKey(name)) {
-            mNetworkMap.put(name, network);
-
-            String root = getExternalCacheDir().getAbsolutePath();
-
-            // Store networks
-            P2PTaskManager.getInstance().execute(new StoreNetworks(root));
-
-        }
-    }
-
     public String getName() {
         return getResources().getString(R.string.app_name);
     }
@@ -190,6 +160,81 @@ public class P2PApplication extends Application implements Observable {
     public String getSupportUrl() {
         return getResources().getString(R.string.app_support_url);
     }
+
+    /**
+     * Join P2P network
+     *
+     * @param name P2P network name (well-known bus name)
+     * @param port P2P network port (bus attachment port)
+     *
+     * @return P2PNetwork Network instance if joined, false otherwise.
+     */
+    @Nullable
+    public P2PNetwork join(String name, int port, String label) {
+        P2PNetwork network = new P2PNetworkImpl(name, (short)port, label);
+        return join(network) ? network : null;
+    }
+
+    /**
+     * Join P2P network
+     *
+     * @param network P2P network instance
+     */
+    private boolean join(P2PNetwork network) {
+        String name = network.getName();
+        short port = network.getPort();
+        mRunningService = P2PService.join(name, port);
+        if (mRunningService == null) {
+            String msg = String.format("P2PService is not running");
+            Log.i(TAG, msg);
+        } else if(!mNetworkMap.containsKey(name)) {
+            mNetworkMap.put(name, network);
+
+            String root = getExternalCacheDir().getAbsolutePath();
+
+            // Store networks
+            P2PTaskManager.getInstance().execute(new StoreNetworks(root));
+
+        }
+        return mNetworkMap.containsKey(name);
+    }
+
+    /**
+     * Leave P2P network
+     *
+     * @param name P2P network name (well-known bus name)
+     *
+     * @return boolean
+     */
+    public boolean leave(String name) {
+        P2PNetwork network = mNetworkMap.get(name);
+        if(network != null) {
+            mRunningService = P2PService.leave(name);
+            if (mRunningService == null) {
+                Log.i(TAG, "P2PService is not running");
+                return false;
+            }
+        } else {
+            Log.i(TAG, String.format("Network %s unknown", name));
+            return false;
+        }
+        return network != null;
+    }
+
+    /**
+     * Leave all P2P networks
+     *
+     * @return boolean
+     */
+    public boolean leaveAll() {
+        mRunningService = P2PService.leaveAll();
+        if (mRunningService == null) {
+            Log.i(TAG, "P2PService is not running");
+            return false;
+        }
+        return true;
+    }
+
 
     /**
      * P2PApplication components that depends on P2PService should call this method to ensure that
@@ -325,7 +370,7 @@ public class P2PApplication extends Application implements Observable {
             // Join default network?
             if(result.isEmpty()) {
 
-                join(getPackageName(), 929);
+                join(getPackageName(), 929, "P2PApp");
 
             } else {
                 // Join previous networks

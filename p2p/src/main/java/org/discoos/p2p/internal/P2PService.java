@@ -64,7 +64,10 @@ public final class P2PService extends Service {
 
     private static final String PARAM_NETWORK_NAME = "param.bus.name";
     private static final String PARAM_NETWORK_PORT = "param.bus.port";
+
     public static final String ACTION_JOIN = "action.join";
+    public static final String ACTION_LEAVE = "action.leave";
+    public static final String ACTION_LEAVE_ALL = "action.leave.all";
 
     /**
      * We don't use the bindery to communicate between any client and this
@@ -121,7 +124,7 @@ public final class P2PService extends Service {
     }
 
     /**
-     * Helper method for starting a proximity network
+     * Helper method for joining a proximity network
      * @param name P2P network name
      * @param port P2P network port
      */
@@ -130,6 +133,27 @@ public final class P2PService extends Service {
         starter.putExtra(PARAM_NETWORK_NAME, name);
         starter.putExtra(PARAM_NETWORK_PORT, (short) port);
         starter.setAction(ACTION_JOIN);
+        return P2P.getApplication().startService(starter);
+    }
+
+    /**
+     * Helper method for leaving a proximity network
+     * @param name P2P network name
+     * @param port P2P network port
+     */
+    public static ComponentName leave(String name) {
+        Intent starter = new Intent(P2P.getApplication(), P2PService.class);
+        starter.putExtra(PARAM_NETWORK_NAME, name);
+        starter.setAction(ACTION_LEAVE);
+        return P2P.getApplication().startService(starter);
+    }
+
+    /**
+     * Helper method for leaving all proximity networks
+     */
+    public static ComponentName leaveAll() {
+        Intent starter = new Intent(P2P.getApplication(), P2PService.class);
+        starter.setAction(ACTION_LEAVE_ALL);
         return P2P.getApplication().startService(starter);
     }
 
@@ -149,22 +173,23 @@ public final class P2PService extends Service {
         if(intent !=null) {
 
             if (ACTION_JOIN.equals(intent.getAction())) {
-
                 String name = intent.getStringExtra(PARAM_NETWORK_NAME);
                 short port = intent.getShortExtra(PARAM_NETWORK_PORT, (short) 0);
-
-                onLeave();
-
                 onJoin(name, port);
-
+            }
+            else if (ACTION_LEAVE.equals(intent.getAction())) {
+                String name = intent.getStringExtra(PARAM_NETWORK_NAME);
+                onLeave(name);
+            }else if (ACTION_LEAVE_ALL.equals(intent.getAction())) {
+                onLeaveAll();
             }
         }
 
         return START_STICKY;
     }
 
-    private void onJoin(String name, short port) {
-
+    private boolean onJoin(String name, short port) {
+        boolean joined = false;
         if(!mHandlerMap.containsKey(name)) {
 
             /** Initialize network state */
@@ -173,10 +198,14 @@ public final class P2PService extends Service {
             P2PHandler handler = new P2PHandler(name, port);
             if(handler.join()) {
                 mHandlerMap.put(name, handler);
+                joined = true;
             } else {
                 Log.e(TAG, String.format("Failed to join %s", name));
             }
+        } else {
+            Log.w(TAG, String.format("Already joined network %s", name));
         }
+        return joined;
     }
 
     private Observer createObserver() {
@@ -260,12 +289,24 @@ public final class P2PService extends Service {
     }
 
     /**
+     * Leave P2P network
+     */
+    private boolean onLeave(String name) {
+        if(mHandlerMap.containsKey(name)) {
+            return mHandlerMap.get(name).leave();
+        } else {
+            Log.w(TAG, String.format("Network %s not joined", name));
+        }
+        return false;
+    }
+
+    /**
      * Leave all P2P networks
      */
-    private int onLeave() {
+    private int onLeaveAll() {
         int count = 0;
-        for(P2PHandler handler : mHandlerMap.values()) {
-            if(handler.leave()) {
+        for(String name : mHandlerMap.keySet()) {
+            if(onLeave(name)) {
                 count++;
             }
         }
@@ -273,7 +314,7 @@ public final class P2PService extends Service {
     }
 
     /**
-     * Our onDestroy() is called by the Android appliation framework when it
+     * Our onDestroy() is called by the Android application framework when it
      * decides that our Service is no longer needed.  We tell our background
      * thread to exit andremove ourselves from the list of observers of the
      * model.
@@ -282,16 +323,16 @@ public final class P2PService extends Service {
 
         Log.i(TAG, "onDestroy()");
 
-        if(onLeave() > 0) {
-
-            /**
-             * When Android decides that our Service is no longer needed, we need to
-             * tear down all handlers and the associated thread that serves each handler
-             */
-            for(P2PHandler handler : mHandlerMap.values()) {
-                handler.quit();
+        /**
+         * When Android decides that our Service is no longer needed, we need to
+         * tear down all handlers and the associated thread that serves each handler
+         */
+        for(String name : mHandlerMap.keySet()) {
+            if(!onLeave(name)) {
+                Log.w(TAG, "Unable to leave network %s, bus might still be connected");
             }
-
+            Log.d(TAG, "Shutting down handler thread for network %s");
+            mHandlerMap.get(name).quit();
         }
 
         /**

@@ -331,7 +331,8 @@ public final class P2PHandler implements Observable {
     private boolean onConnect() {
 
         if (mBus != null) {
-            error("Bus already connected");
+            String msg = "Bus already connected to network %s@%s";
+            error(String.format(msg, mName, mPort));
             return false;
         }
 
@@ -501,16 +502,22 @@ public final class P2PHandler implements Observable {
 
         Log.i(TAG, "onLeave()");
 
-        mAboutObj.unannounce();
-        mBus.unregisterBusObject(mNetwork);
-        for(BusObject it : mBusObjectMap.keySet()) {
-            mBus.unregisterBusObject(it);
+        // Connected?
+        if (mBus != null) {
+            mAboutObj.unannounce();
+            mBus.unregisterBusObject(mNetwork);
+            for (BusObject it : mBusObjectMap.keySet()) {
+                mBus.unregisterBusObject(it);
+            }
+            mBus.unregisterBusListener(mBusListener);
+            mBus.unregisterSignalHandlers(mNetwork);
+            mBus.unregisterAboutListener(mAboutListener);
+            mBus.unbindSessionPort(mPort);
+            mBus.disconnect();
+        } else {
+            error("Bus not connected to any network");
+            return false;
         }
-        mBus.unregisterBusListener(mBusListener);
-        mBus.unregisterSignalHandlers(mNetwork);
-        mBus.unregisterAboutListener(mAboutListener);
-        mBus.unbindSessionPort(mPort);
-        mBus.disconnect();
 
         /** Cleanup */
         mBus.release();

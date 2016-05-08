@@ -53,29 +53,36 @@ public class NetworkListActivity extends BaseActivity
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
                 this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
-        drawer.addDrawerListener(toggle);
+        if (drawer != null) {
+            drawer.addDrawerListener(toggle);
+        }
         toggle.syncState();
 
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
-        navigationView.setNavigationItemSelectedListener(this);
+        if (navigationView != null) {
+            navigationView.setNavigationItemSelectedListener(this);
+        }
     }
 
     private void onCreateFloatingAction() {
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-//                int peers = 0;
-//                P2PApplication app = P2P.getApplication();
-//                for (String id : app.getPeerIds()) {
-//                    if (app.ping(id)) {
-//                        peers++;
-//                    }
-//                }
-                String msg = String.format("Added network %s", "TODO");
-                Snackbar.make(view, msg, Snackbar.LENGTH_LONG).show();
-            }
-        });
+        if (fab != null) {
+            fab.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    String name = "test";
+                    P2PNetwork network = P2P.join(name, 100, name);
+                    String msg = null;
+                    if (network != null) {
+                        msg = String.format("Added network %s", name);
+                    } else {
+                        msg = String.format("Failed to add network %s", name);
+
+                    }
+                    Snackbar.make(view, msg, Snackbar.LENGTH_LONG).show();
+                }
+            });
+        }
     }
 
     private void onCreateP2PObserver(final NetworkRecyclerViewAdapter adapter) {
@@ -102,7 +109,7 @@ public class NetworkListActivity extends BaseActivity
     @Override
     public void onBackPressed() {
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
-        if (drawer.isDrawerOpen(GravityCompat.START)) {
+        if (drawer != null && drawer.isDrawerOpen(GravityCompat.START)) {
             drawer.closeDrawer(GravityCompat.START);
         } else {
             super.onBackPressed();
@@ -139,7 +146,9 @@ public class NetworkListActivity extends BaseActivity
 
         if(display) {
             DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
-            drawer.closeDrawer(GravityCompat.START);
+            if (drawer != null) {
+                drawer.closeDrawer(GravityCompat.START);
+            }
         }
 
         return display;
@@ -168,7 +177,7 @@ public class NetworkListActivity extends BaseActivity
         public void onBindViewHolder(final ViewHolder holder, int position) {
             String name = P2P.getNetworkNames().get(position);
             holder.mItem = P2P.getNetwork(name);
-            holder.mNameView.setText(holder.mItem.getName());
+            holder.mLabelView.setText(holder.mItem.getLabel());
             holder.mPeersView.setText(Arrays.toString(holder.mItem.getPeerIds().toArray()));
 
             holder.mView.setOnClickListener(new View.OnClickListener() {
@@ -189,14 +198,14 @@ public class NetworkListActivity extends BaseActivity
 
         public class ViewHolder extends RecyclerView.ViewHolder {
             public final View mView;
-            public final TextView mNameView;
+            public final TextView mLabelView;
             public final TextView mPeersView;
             public P2PNetwork mItem;
 
             public ViewHolder(View view) {
                 super(view);
                 mView = view;
-                mNameView = (TextView) view.findViewById(R.id.network_name);
+                mLabelView = (TextView) view.findViewById(R.id.network_label);
                 mPeersView = (TextView) view.findViewById(R.id.network_peers);
             }
         }
