@@ -31,9 +31,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
-import android.support.v7.widget.RecyclerView;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
+import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -42,9 +42,10 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import org.discoos.p2p.P2P;
-import org.discoos.p2p.P2PApplication;
 import org.discoos.p2p.PeerInfo;
 import org.discoos.p2p.R;
+import org.discoos.p2p.internal.P2PContext;
+import org.discoos.signal.Event;
 import org.discoos.signal.Observer;
 
 import java.text.SimpleDateFormat;
@@ -73,7 +74,7 @@ public class PeerListActivity extends BaseActivity {
     /**
      * List of known peers
      */
-    private List<PeerInfo> mPeerList = P2P.getPeerList();
+    private List<? extends PeerInfo> mPeerList;
 
 
     @Override
@@ -84,15 +85,15 @@ public class PeerListActivity extends BaseActivity {
 
         mNetwork = getIntent().getStringExtra(PeerListActivity.ARG_NETWORK_NAME);
 
-        String title = getTitle().toString();
-        if(mNetwork != null) {
-            title = mNetwork + " " + title;
-        }
+        fetchPeerList();
 
+        String title = getTitle().toString();
+        if(mNetwork != null && P2P.getNetworkNames().contains(mNetwork)) {
+            title = P2P.getNetwork(mNetwork).getLabel() + " " + title;
+        }
         onCreateToolbar(R.id.peer_list_toolbar, title, true);
 
         onCreateFloatingAction();
-
 
         View recyclerView = findViewById(R.id.peer_list);
         assert recyclerView != null : "RecyclerView 'R.id.peer_list' not found";
@@ -142,9 +143,9 @@ public class PeerListActivity extends BaseActivity {
             @Override
             public void onClick(View view) {
                 int peers = 0;
-                P2PApplication app = P2P.getApplication();
-                for (String id : app.getPeerIds()) {
-                    if (app.ping(id)) {
+                P2PContext cxt = P2P.getContext();
+                for (String id : cxt.getPeerIds()) {
+                    if (cxt.ping(id)) {
                         peers++;
                     }
                 }
@@ -161,22 +162,28 @@ public class PeerListActivity extends BaseActivity {
         ensureNetwork();
 
         /**
-         * Close this activity on signal QUIT
+         * Register handles
          */
         addObserver(P2P.CHANGED, new Observer() {
             @Override
             public void handle(Object signal, Object observable) {
-
-                // Fetch all peers from all networks
-                mPeerList = mNetwork == null ? P2P.getPeerList() : P2P.getNetwork(mNetwork).getPeerList();
-
-                /** Inform list view that data has changed*/
-                adapter.notifyDataSetChanged();
-
+                if(P2P.isEvent(observable) && P2P.isPeerChange((Event)observable)) {
+                    fetchPeerList();
+                    /** Inform list view that data has changed*/
+                    adapter.notifyDataSetChanged();
+                }
             }
         });
     }
 
+    private void fetchPeerList() {
+        // Fetch all peers from all networks
+        if(mNetwork == null || !P2P.getNetworkNames().contains(mNetwork) ) {
+            mPeerList = P2P.getPeerList();
+        } else {
+            mPeerList = P2P.getNetwork(mNetwork).getPeerList();
+        }
+    }
 
 
     private PeerInfoRecyclerViewAdapter onSetupRecyclerView(@NonNull RecyclerView recyclerView) {

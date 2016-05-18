@@ -1,41 +1,23 @@
 package org.discoos.p2p.internal;
 
 import android.os.AsyncTask;
-import android.support.annotation.CallSuper;
-
-import java.util.Map;
-import java.util.Set;
 
 /**
- * Base class for asynchronous P2P task
+ * Base class for asynchronous P2P task execution
  * @param <R> Result type
  */
-public abstract class P2PTask<R>  extends AsyncTask<Object, Object, R> {
+public abstract class P2PTask<R>  {
 
-    protected final String mRoot;
+    AsyncTask mExecutor;
 
-    protected Set<AsyncTask> mTasks;
-
-    public P2PTask(String root) {
-        mRoot = root;
+    protected boolean isCancelled() {
+        return mExecutor !=null && mExecutor.isCancelled();
     }
 
     protected abstract R doInBackground();
 
-    @Override
-    protected final R doInBackground(Object[] params) {
-        mTasks = (Set<AsyncTask>)params[0];
-        return doInBackground();
-    }
+    protected void onCancelled(R result) {}
 
-    @Override
-    protected final void onPostExecute(R result) {
-        mTasks.remove(this);
-        onFinished(result);
-    }
-
-    protected void onFinished(R result) {
-
-    }
+    protected void onFinished(R result) {}
 
 }

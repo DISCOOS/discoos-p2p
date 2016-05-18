@@ -28,6 +28,7 @@
 package org.discoos.signal;
 
 import android.os.Handler;
+import android.os.Looper;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -90,7 +91,14 @@ public class Dispatcher {
 
 
     public void raise(Object signal, Object observable) {
-        List<Observer> notified = mObserverMap.get(ALL);
+
+        assert Looper.getMainLooper() == Looper.myLooper()
+                : String.format("Not on main looper: %s",Looper.myLooper());
+
+        /** Don't care about concurrent modifications,
+         * like adding and removing observers inside these loops.
+         * These will not be handled until next invocation of this method */
+        List<Observer> notified = new ArrayList<>(mObserverMap.get(ALL));
         if (!notified.isEmpty()) {
             for (Observer observer : notified) {
                 observer.handle(signal, observable);
@@ -98,7 +106,7 @@ public class Dispatcher {
             }
         }
         if (mObserverMap.containsKey(signal)) {
-            for (Observer observer : mObserverMap.get(signal)) {
+            for (Observer observer : new ArrayList<>(mObserverMap.get(signal))) {
                 if(!notified.contains(observer)) {
                     observer.handle(signal, observable);
                 }

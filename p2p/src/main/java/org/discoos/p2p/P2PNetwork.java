@@ -36,8 +36,6 @@ import java.util.Set;
 public interface P2PNetwork {
     String getName();
 
-    short getPort();
-
     String getLabel();
 
     void setLabel(String label);

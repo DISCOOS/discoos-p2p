@@ -49,7 +49,6 @@ import org.discoos.signal.Observer;
 public final class PeerDetailActivity extends BaseActivity {
 
     private String mId;
-    private String mName;
 
     private PeerDetailFragment mFragment;
 
@@ -86,8 +85,8 @@ public final class PeerDetailActivity extends BaseActivity {
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                P2P.getApplication().ping(mId);
-                String msg = String.format("Pinged %s@%s", mId, mName);
+                P2P.getContext().ping(mId);
+                String msg = String.format("Pinged %s", mId);
                 Snackbar.make(view, msg, Snackbar.LENGTH_LONG).show();
 
             }

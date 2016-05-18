@@ -27,6 +27,7 @@
  */
 package org.discoos.p2p;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ContentResolver;
@@ -40,6 +41,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.provider.ContactsContract;
+import android.support.v4.content.ContextCompat;
 import android.util.Log;
 
 import org.alljoyn.bus.Variant;
@@ -73,6 +75,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 
 /**
  * P2P utilities
@@ -348,20 +352,33 @@ public class P2PUtils {
 
         Map<String, Variant> info = new HashMap<>();
 
-        String[] columnNames = new String[] {ContactsContract.Profile.DISPLAY_NAME};
+        if(isGranted(Manifest.permission.READ_CONTACTS)) {
 
-        ContentResolver resolver = P2P.getApplication().getContentResolver();
-        Cursor cursor = resolver.query(ContactsContract.Profile.CONTENT_URI, columnNames, null, null, null);
-        if(cursor != null) {
-            int count = cursor.getCount();
-            cursor.moveToFirst();
-            int position = cursor.getPosition();
-            if (count == 1 && position == 0) {
-                info.put(P2PAboutData.USER_NAME, new Variant(cursor.getString(0)));
+            String[] columnNames = new String[]{ContactsContract.Profile.DISPLAY_NAME};
+
+            ContentResolver resolver = P2P.getApplication().getContentResolver();
+            Cursor cursor = resolver.query(ContactsContract.Profile.CONTENT_URI, columnNames, null, null, null);
+            if (cursor != null) {
+                int count = cursor.getCount();
+                cursor.moveToFirst();
+                int position = cursor.getPosition();
+                if (count == 1 && position == 0) {
+                    info.put(P2PAboutData.USER_NAME, new Variant(cursor.getString(0)));
+                }
+                cursor.close();
             }
-            cursor.close();
         }
         return info;
+    }
+
+    public static boolean isGranted(String access) {
+        return PERMISSION_GRANTED == ContextCompat.checkSelfPermission(
+                P2P.getApplication(), access);
+    }
+
+    /* Send signal as message to handler thread */
+    public static boolean raise(int signal, Handler handler) {
+        return raise(signal, handler, null);
     }
 
     public static final class LogItem {
@@ -440,5 +457,13 @@ public class P2PUtils {
     }
 
 
+    public static boolean contains(String[] values, String match) {
+        for (String value : values) {
+            if (value.equals(match)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
 }

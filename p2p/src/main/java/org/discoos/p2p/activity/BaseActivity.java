@@ -61,7 +61,7 @@ public class BaseActivity extends AppCompatActivity {
         /**
          * Close this activity on signal QUIT
          */
-        P2P.getDispatcher().add(P2P.QUIT, new Observer() {
+        addObserver(P2P.QUIT, new Observer() {
             @Override
             public void handle(Object signal, Object observable) {
                 finish();
@@ -74,7 +74,7 @@ public class BaseActivity extends AppCompatActivity {
      * Ensure P2P proximity network exists
      */
     protected void ensureNetwork() {
-        P2P.getApplication().ensure();
+        P2P.getContext().ensure();
     }
 
     protected void addObserver(Observer observer) {
@@ -167,11 +167,10 @@ public class BaseActivity extends AppCompatActivity {
                 return true;
             case R.id.menu_item_settings:
                 intent = new Intent(this, SettingsActivity.class);
-//                intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
                 startActivity(intent);
                 return true;
             case R.id.menu_item_quit:
-                P2P.getApplication().quit();
+                P2P.getContext().quit();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);

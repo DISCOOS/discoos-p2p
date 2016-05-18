@@ -178,7 +178,7 @@ public class LogListActivity extends BaseActivity {
                 startActivity(intent);
                 return true;
             case R.id.menu_send_log:
-                File file= P2PUtils.writeLog(getExternalCacheDir().getAbsolutePath(), "p2papp.txt");
+                File file= P2PUtils.writeLog(P2P.getFilesDir().getAbsolutePath(), "p2papp.txt");
                 intent = new Intent(Intent.ACTION_SEND);
                 intent.putExtra(Intent.EXTRA_SUBJECT, "P2PApp system log");
                 intent.putExtra(Intent.EXTRA_TEXT, "Please review attached system log");

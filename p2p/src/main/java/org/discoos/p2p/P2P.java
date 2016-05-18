@@ -27,17 +27,20 @@
  */
 package org.discoos.p2p;
 
-import android.support.annotation.NonNull;
+import android.os.Environment;
 import android.support.annotation.Nullable;
 
-import org.alljoyn.bus.BusAttachment;
-import org.discoos.p2p.PeerInfo;
+import org.discoos.p2p.internal.P2PContext;
+import org.discoos.p2p.internal.P2PNetworkCache;
+import org.discoos.p2p.internal.P2PNetworkImpl;
+import org.discoos.p2p.internal.PeerInfoCache;
 import org.discoos.signal.Dispatcher;
+import org.discoos.signal.Event;
 
 import java.io.File;
 import java.util.List;
 
-public class P2P {
+public final class P2P {
 
     /* Quit signal */
     public static final int QUIT = 0;
@@ -51,43 +54,78 @@ public class P2P {
     /* Leave P2P network */
     public static final int LEAVE = 3;
 
-    /* Broadcast signal to P2P network */
+    /* Broadcast signal */
     public static final int BROADCAST = 4;
 
-    /* Cancel broadcast signal to P2P network */
+    /* Cancel signal */
     public static final int CANCEL = 5;
 
-    /* Peer joined network */
-    public static final int JOINED = 6;
+    /* Peer announced signal */
+    public static final int ANNOUNCED = 6;
+
+    /* Peer alive signal */
+    public static final int ALIVE = 7;
+
+    /* Peer unresponsive */
+    public static final int TIMEOUT = 8;
 
     /* Peer left network */
-    public static final int TIMEOUT = 7;
-
-    /* Network changed */
-    public static final int CHANGED = 8;
+    public static final int LEFT = 9;
 
     /* Ping Peer */
-    public static final int PING = 9;
+    public static final int PING = 10;
 
-    /* Peer is alive */
-    public static final int ALIVE = 10;
+    /* Data added */
+    public static final int ADDED = 11;
+
+    /* Data removed */
+    public static final int REMOVED = 12;
+
+    /* Data changed */
+    public static final int CHANGED = 13;
+
+    /* All flag */
+    public static final int ALL = 14;
 
     /* Set notification */
     public static final int NOTIFY = 100;
 
-    /* Network warning */
+    /* P2P warning */
     public static final int WARNING = -254;
 
-    /* Network error */
+    /* P2P error */
     public static final int ERROR = -255;
 
+    /**
+     * Default cache store delay (500 milliseconds)
+     */
+    public static final int CACHE_STORE_DELAY = 500;
 
+    /**
+     * System log loader id
+     */
     public static final int LOADER_SYSTEM_LOG_ID = 1;
+
+    /**
+     * File name network list
+     */
     public static final String FILE_NETWORK_LIST = "network.list";
+
+    /**
+     * File name peer info list
+     */
     public static final String FILE_PEERINFO_LIST = "peerinfo.list";
 
     /**
-     * Get singleton instance
+     * Get P2P context (singleton)
+     * @return P2PContext
+     */
+    public static P2PContext getContext() {
+        return P2PContext.getInstance();
+    }
+
+    /**
+     * Get P2P application (singleton)
      * @return P2PApplication
      */
     public static P2PApplication getApplication() {
@@ -95,11 +133,11 @@ public class P2P {
     }
 
     /**
-     * Get signal dispatcher
+     * Get signal dispatcher (global)
      * @return Dispatcher
      */
     public static Dispatcher getDispatcher() {
-        return P2PApplication.getInstance().getDispatcher();
+        return getContext().getDispatcher();
     }
 
     /**
@@ -107,7 +145,7 @@ public class P2P {
      * @return P2PNetwork
      */
     public static P2PNetwork getNetwork(String name) {
-        return P2PApplication.getInstance().getNetwork(name);
+        return getContext().getNetwork(name);
     }
 
     /**
@@ -115,7 +153,7 @@ public class P2P {
      * @return Set
      */
     public static List<String> getNetworkNames() {
-        return P2PApplication.getInstance().getNetworkNames();
+        return getContext().getNetworkNames();
     }
 
     /**
@@ -124,7 +162,7 @@ public class P2P {
      * @return PeerInfo
      */
     public static PeerInfo getPeer(String id) {
-        return P2PApplication.getInstance().getPeer(id);
+        return getContext().getPeer(id);
     }
 
     /**
@@ -132,15 +170,15 @@ public class P2P {
      * @return Set
      */
     public static List<String> getPeerIds() {
-        return P2PApplication.getInstance().getPeerIds();
+        return getContext().getPeerIds();
     }
 
     /**
      * Get unmodifiable set of all peers
      * @return Set
      */
-    public static List<PeerInfo> getPeerList() {
-        return P2PApplication.getInstance().getPeerList();
+    public static List<? extends PeerInfo> getPeerList() {
+        return getContext().getPeerList();
     }
 
     /**
@@ -148,21 +186,105 @@ public class P2P {
      * @return File
      */
     public static File getCacheDir() {
-        return getApplication().getExternalCacheDir();
+        if(Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState())) {
+            return getApplication().getExternalCacheDir();
+        }
+        return getApplication().getCacheDir();
+    }
+
+    /**
+     * Get application cache directory
+     * @return File
+     */
+    public static File getFilesDir() {
+        if(Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState())) {
+            return getApplication().getExternalFilesDir(null);
+        }
+        return getApplication().getFilesDir();
     }
 
     /**
      * Join P2P network
      *
      * @param name P2P network name (well-known bus name)
-     * @param port P2P network port (bus attachment port)
      * @param label P2P network label (used as title in list and detail views)
      *
      * @return P2PNetwork Network instance if joined, false otherwise.
      */
     @Nullable
-    public static P2PNetwork join(String name, int port, String label) {
-        return getApplication().join(name, port, label);
+    public static P2PNetwork join(String name, String label) {
+        return getContext().join(name, label);
     }
 
+    /**
+     * Leave P2P network
+     *
+     * @param name P2P network name (well-known bus name)
+     *
+     * @return P2PNetwork Network instance if left, false otherwise.
+     */
+    @Nullable
+    public static P2PNetwork leave(String name) {
+        return getContext().leave(name);
+    }
+
+    /**
+     * Leave all P2P networks
+     *
+     * @return boolean
+     */
+    @Nullable
+    public static boolean leaveAll() {
+        return getContext().leaveAll();
+    }
+
+    /**
+     * Leave P2P network and remove from network list
+     *
+     * @param name P2P network name (well-known bus name)
+     *
+     * @return P2PNetwork Network instance if deleted, false otherwise.
+     */
+    @Nullable
+    public static P2PNetwork delete(String name) {
+        return getContext().delete(name);
+    }
+
+    /**
+     * Leave all P2P networks and clear network list
+     *
+     * @return boolean
+     */
+    @Nullable
+    public static boolean deleteAll() {
+        return getContext().deleteAll();
+    }
+
+    /**
+     * Check if given object represents an event
+     * @param observable Observable
+     * @return boolean
+     */
+    public static boolean isEvent(Object observable) {
+        return observable instanceof Event;
+    }
+
+    /**
+     * Check if given object represents a peer change
+     * @param observable Observable event
+     * @return boolean
+     */
+    public static boolean isPeerChange(Event observable) {
+        return observable.getSource() instanceof PeerInfoCache;
+    }
+
+    /**
+     * Check if given object represents a network change
+     * @param observable Observable event
+     * @return boolean
+     */
+    public static boolean isNetworkChange(Event observable) {
+        return observable.getSource() instanceof P2PNetworkCache ||
+                observable.getSource() instanceof P2PNetworkImpl ;
+    }
 }

@@ -29,14 +29,11 @@ package org.discoos.p2p;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 
 /**
  * PeerInfo interface
  */
 public interface PeerInfo {
-
-    List<String> getNetworks();
 
     String getId();
 
@@ -46,19 +43,16 @@ public interface PeerInfo {
 
     String getDetails();
 
-    boolean isTimeout();
+    boolean isMe();
 
-    Object get(String parameter);
-    Map<String, Object> getParams();
+    boolean isTimeout();
 
     Date getTimestamp();
 
-    PeerInfo alive();
+    Object get(String parameter);
 
-    PeerInfo alive(String name);
+    List<String> getNetworks();
 
-    PeerInfo timeout();
-
-    PeerInfo update(String name, String summary, String details, Map<String, Object> params);
+    boolean isMemberOf(String network);
 
 }

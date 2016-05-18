@@ -71,14 +71,17 @@ public final class PeerDetailFragment extends Fragment {
 
             if (item != null) {
                 if (mAppBarLayout != null) {
-                    String title = item.get(P2PAboutData.USER_NAME).toString();
+                    Object title = item.get(P2PAboutData.USER_NAME);
                     if(title == null) {
-                        title = item.get(P2PAboutData.MODEL_NUMBER).toString();
+                        title = item.getSummary();
                     }
-                    mAppBarLayout.setTitle(title);
+                    mAppBarLayout.setTitle(title.toString());
                 }
+                String id = item.getId();
+                id = String.format("Peer id: %s", id);
                 String networks = Arrays.toString(item.getNetworks().toArray());
                 networks = String.format("Networks: %s", networks);
+                ((TextView) rootView.findViewById(R.id.peer_id)).setText(id);
                 ((TextView) rootView.findViewById(R.id.peer_networks)).setText(networks);
                 ((TextView) rootView.findViewById(R.id.peer_detail)).setText(item.getDetails());
             }

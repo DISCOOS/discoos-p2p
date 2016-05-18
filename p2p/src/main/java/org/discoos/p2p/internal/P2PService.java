@@ -47,10 +47,8 @@ import org.discoos.p2p.PeerInfo;
 import org.discoos.p2p.R;
 import org.discoos.p2p.activity.PeerListActivity;
 import org.discoos.p2p.activity.QuitActivity;
+import org.discoos.signal.Event;
 import org.discoos.signal.Observer;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * P2P service class. Runs in main thread, same as P2PApplication and Activities. Long running
@@ -63,7 +61,6 @@ public final class P2PService extends Service {
     private static final int NOTIFICATION_ID = 1;
 
     private static final String PARAM_NETWORK_NAME = "param.bus.name";
-    private static final String PARAM_NETWORK_PORT = "param.bus.port";
 
     public static final String ACTION_JOIN = "action.join";
     public static final String ACTION_LEAVE = "action.leave";
@@ -79,11 +76,10 @@ public final class P2PService extends Service {
     }
 
     /**
-     * Map of P2PHandler instances. These are created on demand when Android calls onStartCommand()
-     * method. When Android decides our Service is no longer needed, it will call onDestroy(), which
-     * spins down all handlers.
+     * P2PHandler instance. When Android decides that this service is no longer needed, it will
+     * call onDestroy(), which spins down this handlers looper thread.
      */
-    private final Map<String, P2PHandler> mHandlerMap = new HashMap<>();
+    private P2PHandler mHandler = new P2PHandler();
 
     /**
      * P2PApplication observer
@@ -114,11 +110,15 @@ public final class P2PService extends Service {
         mObserver = createObserver();
         P2P.getDispatcher().add(mObserver);
 
+        /**
+         * Initialize P2P bus handler
+         */
+        mHandler.init();
+
         /*
          * Start the service in the foreground to keep it and the
          * associated P2PHandler thread alive as long as possible
           */
-        Log.i(TAG, "onCreate(): startForeground()");
         Notification notification = createNotification("P2P Proximity Network Test", true);
         startForeground(NOTIFICATION_ID, notification);
     }
@@ -126,12 +126,10 @@ public final class P2PService extends Service {
     /**
      * Helper method for joining a proximity network
      * @param name P2P network name
-     * @param port P2P network port
      */
-    public static ComponentName join(String name, int port) {
+    public static ComponentName join(String name) {
         Intent starter = new Intent(P2P.getApplication(), P2PService.class);
         starter.putExtra(PARAM_NETWORK_NAME, name);
-        starter.putExtra(PARAM_NETWORK_PORT, (short) port);
         starter.setAction(ACTION_JOIN);
         return P2P.getApplication().startService(starter);
     }
@@ -139,7 +137,6 @@ public final class P2PService extends Service {
     /**
      * Helper method for leaving a proximity network
      * @param name P2P network name
-     * @param port P2P network port
      */
     public static ComponentName leave(String name) {
         Intent starter = new Intent(P2P.getApplication(), P2PService.class);
@@ -174,8 +171,7 @@ public final class P2PService extends Service {
 
             if (ACTION_JOIN.equals(intent.getAction())) {
                 String name = intent.getStringExtra(PARAM_NETWORK_NAME);
-                short port = intent.getShortExtra(PARAM_NETWORK_PORT, (short) 0);
-                onJoin(name, port);
+                onJoin(name);
             }
             else if (ACTION_LEAVE.equals(intent.getAction())) {
                 String name = intent.getStringExtra(PARAM_NETWORK_NAME);
@@ -188,24 +184,16 @@ public final class P2PService extends Service {
         return START_STICKY;
     }
 
-    private boolean onJoin(String name, short port) {
-        boolean joined = false;
-        if(!mHandlerMap.containsKey(name)) {
+    private boolean onJoin(String name) {
 
-            /** Initialize network state */
-            P2P.getDispatcher().raise(P2P.INIT, name);
+        Log.i(TAG, String.format("onJoin(): network=%s", name));
 
-            P2PHandler handler = new P2PHandler(name, port);
-            if(handler.join()) {
-                mHandlerMap.put(name, handler);
-                joined = true;
-            } else {
-                Log.e(TAG, String.format("Failed to join %s", name));
-            }
-        } else {
-            Log.w(TAG, String.format("Already joined network %s", name));
+        /** Forward action to handler */
+        if(!mHandler.join(name)){
+            Log.e(TAG, String.format("Failed to join network %s", name));
+            return false;
         }
-        return joined;
+        return true;
     }
 
     private Observer createObserver() {
@@ -215,20 +203,14 @@ public final class P2PService extends Service {
                 try {
                     switch ((int) signal) {
                         case P2P.BROADCAST:
-                            for (P2PHandler handler : mHandlerMap.values()) {
-                                handler.broadcast();
-                            }
+                            mHandler.broadcast((Event)observable);
                             break;
                         case P2P.CANCEL:
-                            for (P2PHandler handler : mHandlerMap.values()) {
-                                handler.cancel();
-                            }
+                            mHandler.cancel((Event)observable);
                             break;
                         case P2P.PING:
                             int timeout = Integer.parseInt(mPreferences.getString("ping_timeout", "60"));
-                            for (P2PHandler handler : mHandlerMap.values()) {
-                                handler.ping((PeerInfo) observable, timeout * 1000);
-                            }
+                            mHandler.ping((PeerInfo) observable, timeout * 1000);
                             break;
                         case P2P.NOTIFY:
                             if (mPreferences.getBoolean("notifications_peer", false)) {
@@ -292,12 +274,15 @@ public final class P2PService extends Service {
      * Leave P2P network
      */
     private boolean onLeave(String name) {
-        if(mHandlerMap.containsKey(name)) {
-            return mHandlerMap.get(name).leave();
-        } else {
-            Log.w(TAG, String.format("Network %s not joined", name));
+
+        Log.i(TAG, String.format("onLeave(): network=%s", name));
+
+        /** Forward action to handler */
+        if(!mHandler.leave(name)){
+            Log.e(TAG, String.format("Failed to leave network %s", name));
+            return false;
         }
-        return false;
+        return true;
     }
 
     /**
@@ -305,7 +290,7 @@ public final class P2PService extends Service {
      */
     private int onLeaveAll() {
         int count = 0;
-        for(String name : mHandlerMap.keySet()) {
+        for(String name : P2P.getNetworkNames()) {
             if(onLeave(name)) {
                 count++;
             }
@@ -325,15 +310,9 @@ public final class P2PService extends Service {
 
         /**
          * When Android decides that our Service is no longer needed, we need to
-         * tear down all handlers and the associated thread that serves each handler
+         * leave all networks and the associated background thread that serves them.
          */
-        for(String name : mHandlerMap.keySet()) {
-            if(!onLeave(name)) {
-                Log.w(TAG, "Unable to leave network %s, bus might still be connected");
-            }
-            Log.d(TAG, "Shutting down handler thread for network %s");
-            mHandlerMap.get(name).quit();
-        }
+        mHandler.quit();
 
         /**
          * Stop receiving events from dispatcher and release reference to P2PApplication
@@ -343,7 +322,6 @@ public final class P2PService extends Service {
         /* Release references*/
         mObserver = null;
         mPreferences = null;
-        mHandlerMap.clear();
     }
 
 

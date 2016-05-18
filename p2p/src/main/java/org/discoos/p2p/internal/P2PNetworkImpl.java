@@ -27,30 +27,22 @@
  */
 package org.discoos.p2p.internal;
 
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
 import android.os.Looper;
 import android.util.Log;
 
-import org.alljoyn.bus.Variant;
 import org.discoos.p2p.P2P;
 import org.discoos.p2p.P2PNetwork;
-import org.discoos.p2p.P2PUtils;
 import org.discoos.p2p.PeerInfo;
+import org.discoos.p2p.internal.PeerInfoCache.PeerInfoImpl;
 import org.discoos.signal.Dispatcher;
+import org.discoos.signal.Event;
 import org.discoos.signal.Observer;
 
-import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -58,17 +50,17 @@ import java.util.Set;
  */
 public class P2PNetworkImpl implements P2PNetwork, Serializable {
 
-    private static final String TAG = "P2PNetwork";
+    private static final String TAG = "P2PNetworkImpl";
 
     static final long serialVersionUID = 1L;
 
-    private transient Dispatcher mDispatcher;
-
     final String mName;
 
-    final short mPort;
-
     String mLabel;
+
+    private transient Dispatcher mDispatcher;
+
+    private transient Set<Observer> mObservers;
 
     /**
      * A array of peer ids.
@@ -78,73 +70,89 @@ public class P2PNetworkImpl implements P2PNetwork, Serializable {
     /**
      * Constructor
      * @param name Network name
-     * @param port Network port
      */
-    public P2PNetworkImpl(String name, short port, String label) {
+    P2PNetworkImpl(String name, String label) {
         mName = name;
-        mPort = port;
         mLabel = label;
-        register();
     }
 
     /**
-     * Inovked by ObjectInputStream during deserialization.
-     * @return
-     * @throws ObjectStreamException
+     * Register signal handles
      */
-    Object readResolve() throws ObjectStreamException {
-        register();
+    P2PNetworkImpl init() {
+        if(mDispatcher == null) {
+            mDispatcher = P2P.getDispatcher();
+            mDispatcher.add(P2P.INIT, register(new Observer() {
+                public void handle(Object signal, Object observable) {
+                    if(mName.equals(observable)) {
+                        int count = clear();
+                        log("INIT", "peers=" + count);
+                        mDispatcher.schedule(P2P.CHANGED, new Event(P2P.INIT, this, count));
+                    }
+                }
+            })).add(P2P.ANNOUNCED, register(new Observer() {
+                public void handle(Object signal, Object observable) {
+                    PeerInfoImpl info = add(observable);
+                    if(info != null) {
+                        log("JOINED", info);
+                        mDispatcher.schedule(P2P.CHANGED, new Event(P2P.ADDED, this, info));
+                    }
+                }
+            })).add(P2P.ALIVE, register(new Observer() {
+                @Override
+                public void handle(Object signal, Object observable) {
+                    PeerInfoImpl info = add(observable);
+                    if(info != null) {
+                        log("ALIVE_EVENT", info);
+                        mDispatcher.schedule(P2P.CHANGED, new Event(P2P.ADDED, this, info));
+                    }
+                }
+            })).add(P2P.LEFT, register(new Observer() {
+                @Override
+                public void handle(Object signal, Object observable) {
+                    PeerInfoImpl info = remove(observable);
+                    if(info != null) {
+                        log("LEFT", info);
+                        mDispatcher.schedule(P2P.CHANGED, new Event(P2P.REMOVED, this, info));
+                    }
+                }
+            }));
+            int count = 0;
+            for(PeerInfo it : P2P.getPeerList()) {
+                PeerInfoImpl info = add(it);
+                if(info != null) {
+                    log("JOINED", info);
+                    count++;
+                }
+                if(count > 0) {
+                    mDispatcher.schedule(P2P.CHANGED, new Event(P2P.INIT, this, count));
+                }
+            }
+        }
         return this;
     }
 
-    /**
-     *
-     */
-    public void register() {
-        if(mDispatcher == null) {
-            mDispatcher = P2P.getDispatcher();
-            mDispatcher.add(P2P.INIT, new Observer() {
-                @Override
-                public void handle(Object signal, Object observable) {
-                    log("INIT", "peers=" + clear());
-                    mDispatcher.schedule(P2P.CHANGED, signal);
-                }
-            }).add(P2P.JOINED, new Observer() {
-                @Override
-                public void handle(Object signal, Object observable) {
-                    log("JOINED", join(observable));
-                    mDispatcher.schedule(P2P.CHANGED, signal);
-                }
-            }).add(P2P.ALIVE, new Observer() {
-                @Override
-                public void handle(Object signal, Object observable) {
-                    log("ALIVE", join(observable));
-                    mDispatcher.schedule(P2P.CHANGED, signal);
-                }
-            }).add(P2P.TIMEOUT, new Observer() {
-                @Override
-                public void handle(Object signal, Object observable) {
-                    log("TIMEOUT", join(observable));
-                    mDispatcher.schedule(P2P.CHANGED, signal);
-                }
-            }).add(P2P.LEAVE, new Observer() {
-                @Override
-                public void handle(Object signal, Object observable) {
-                    log("LEAVE", leave(observable));
-                    mDispatcher.schedule(P2P.CHANGED, signal);
-                }
-            });
+    private Observer register(Observer observer) {
+        if(mObservers == null) {
+            mObservers  = new HashSet<>();
         }
+        mObservers.add(observer);
+        return observer;
+    }
+
+    void release() {
+        if(mDispatcher != null) {
+            for (Observer it : mObservers) {
+                mDispatcher.removeAll(it);
+            }
+        }
+        mObservers.clear();
+        mDispatcher = null;
     }
 
     @Override
     public String getName() {
         return mName;
-    }
-
-    @Override
-    public short getPort() {
-        return mPort;
     }
 
     @Override
@@ -159,12 +167,12 @@ public class P2PNetworkImpl implements P2PNetwork, Serializable {
 
     @Override
     public PeerInfo getPeer(String id) {
-        return mPeerCache.get(id);
+        return PeerInfoCache.getInstance().get(id);
     }
 
     @Override
     public PeerInfo getPeer(int position) {
-        return mPeerCache.get(mPeerList.get(position));
+        return PeerInfoCache.getInstance().get(mPeerList.get(position));
     }
 
     @Override
@@ -172,38 +180,44 @@ public class P2PNetworkImpl implements P2PNetwork, Serializable {
         return Collections.unmodifiableSet(new HashSet<>(mPeerList));
     }
 
+
     @Override
     public List<PeerInfo> getPeerList() {
         List<PeerInfo> items = new ArrayList<>();
-        for(String id : mPeerList) {
-            items.add(mPeerCache.get(id));
+        synchronized (PeerInfoCache.class) {
+            for(String id : mPeerList) {
+                items.add(PeerInfoCache.getInstance().get(id));
+            }
         }
         return Collections.unmodifiableList(items);
     }
 
-
-    public static Map<String, PeerInfo> getPeerCache() {
-        return Collections.unmodifiableMap(mPeerCache);
-    }
-
-    private PeerInfoImpl join(Object observable) {
+    PeerInfoImpl add(Object observable) {
         PeerInfoImpl info = (PeerInfoImpl) observable;
-        if(!mPeerList.contains(info.id)) {
-            mPeerList.add(info.id);
+        if(info != null && info.isMemberOf(mName)) {
+            if (!mPeerList.contains(info.id)) {
+                P2PNetworkCache.getInstance().onNetworkChanged();
+                mPeerList.add(info.id);
+                return info;
+            }
         }
-        return info;
+        return null;
     }
 
-
-    private PeerInfoImpl leave(Object observable) {
+    PeerInfoImpl remove(Object observable) {
         PeerInfoImpl info = (PeerInfoImpl) observable;
-        leave(info.id);
-        return info;
+        if(info != null && !info.isMemberOf(mName)) {
+            return remove(info.id);
+        }
+        return null;
     }
 
-    private PeerInfo leave(String id) {
-        if(mPeerList.remove(id)) {
-            return mPeerCache.get(id);
+    PeerInfoImpl remove(String id) {
+        synchronized (PeerInfoCache.class) {
+            if(mPeerList.remove(id)) {
+                P2PNetworkCache.getInstance().onNetworkChanged();
+                return PeerInfoCache.getInstance().get(id);
+            }
         }
         return null;
     }
@@ -211,253 +225,18 @@ public class P2PNetworkImpl implements P2PNetwork, Serializable {
     private int clear() {
         int count = mPeerList.size();
         mPeerList.clear();
+        P2PNetworkCache.getInstance().onNetworkChanged();
         return count;
     }
 
-    /**
-     * Package private map of peers across networks
-     */
-    static Map<String, PeerInfo> mPeerCache = new LinkedHashMap<>();
-
-    public static PeerInfo createPeerInfo(String network, Map<String, Variant> data) {
-        PeerInfo info;
-        String id = P2PUtils.toShortId(data);
-        if(mPeerCache.containsKey(id)) {
-            info = mPeerCache.get(id).update(
-                    P2PUtils.toUniqueName(data),
-                    P2PUtils.toSummary(data),
-                    P2PUtils.toDetails(data),
-                    P2PUtils.toParams(data)
-            );
-        } else {
-            info = new PeerInfoImpl(network, id,
-                    P2PUtils.toUniqueName(data),
-                    P2PUtils.toSummary(data),
-                    P2PUtils.toDetails(data),
-                    P2PUtils.toParams(data)
-            );
-        }
-        mPeerCache.put(id, info);
-        String root = P2P.getCacheDir().getAbsolutePath();
-        P2PTaskManager.getInstance().execute(new P2PNetworkImpl.StorePeerInfoCache(root));
-
-        return info;
-    }
-
-
     private static void log(String signal, String msg) {
-        assert !Looper.getMainLooper().equals(Looper.myLooper()) : "Not on main looper";
-        Log.i(TAG, signal + ": " + msg);
+        assert Looper.getMainLooper().equals(Looper.myLooper())
+                : String.format("Not on main looper: %s",Looper.myLooper());
+        Log.i(TAG, String.format("%s: %s", signal, msg));
     }
 
-    private static void log(String signal, PeerInfoImpl info) {
-        log(signal, info.summary);
+    private void log(String signal, PeerInfo info) {
+        log(signal, String.format("%s@%s",info.getId(), mName));
     }
 
-    /**
-     * This class listen for changes in connectivity and
-     * notifies peers each time the device connects to WIFI.
-     */
-    public static class ChangeReceiver extends BroadcastReceiver {
-
-        private static final String TAG = "ChangeReceiver";
-
-        /** Prevent firing when connecting the first time (new instance for each broadcast) */
-        private static boolean mInit;
-
-        /** Used when checking if state changed to WIFI (new instance for each broadcast) */
-        private static Connectivity mState = P2PUtils.getConnectivityStatus(P2P.getApplication());
-
-        @Override
-        public synchronized void onReceive(final Context context, final Intent intent) {
-            try {
-                Connectivity state = P2PUtils.getConnectivityStatus(context);
-
-                // Only after initial notification and if state has changed
-                if(mInit && !mState.equals(state)) {
-
-                    boolean isFailOver = intent.getBooleanExtra("FAILOVER_CONNECTION", false);
-                    boolean isConnection = !intent.getBooleanExtra("EXTRA_NO_CONNECTIVITY", false);
-                    String msg = "onReceive(%s->%s,failover=%s,connection=%s)";
-                    Log.i(TAG, String.format(msg, mState, state, isFailOver, isConnection));
-
-                    switch (state) {
-                        case WIFI:
-                            P2P.getApplication().broadcast();
-                            break;
-                        case MOBILE:
-                            /* Only broadcast alive signal if changed to WIFI*/
-                            P2P.getApplication().cancel();
-                            break;
-                        case NONE:
-                            /* Only broadcast alive signal if changed to WIFI*/
-                            P2P.getApplication().cancel();
-                            break;
-                    }
-                }
-
-                mInit = true;
-                mState = state;
-            }
-            catch (Exception e) {
-                Log.e(TAG, "onReceive()", e);
-            }
-        }
-    }
-
-    /**
-     * Immutable (thread-safe) peer information.
-     */
-    public static class PeerInfoImpl implements PeerInfo, Serializable {
-        public final List<String> networks;
-        public final String id;
-        public final String name;
-        public final String summary;
-        public final String details;
-        public final boolean timeout;
-        public final Map<String, Object> params;
-        public final Date timestamp;
-
-        private static final long serialVersionUID = 1L;
-
-        public PeerInfoImpl(String network, String id, String name, String summary, String details, Map<String, Object> params) {
-            this(Collections.singletonList(network), id, name, summary, details, params);
-        }
-
-        public PeerInfoImpl(List<String> networks, String id, String name, String summary, String details, Map<String, Object> params) {
-            this.id = id;
-            this.name = name;
-            this.summary = summary;
-            this.details = details;
-            this.timeout = false;
-            this.params = Collections.unmodifiableMap(params);
-            this.timestamp = Calendar.getInstance().getTime();
-            this.networks = Collections.unmodifiableList(networks);
-        }
-
-        public PeerInfoImpl(Date timeout, List<String> networks, String id, String name, String summary, String details, Map<String, Object> params) {
-            this.id = id;
-            this.name = name;
-            this.summary = summary;
-            this.details = details;
-            this.timeout = true;
-            this.params = Collections.unmodifiableMap(params);
-            this.timestamp = timeout;
-            this.networks = Collections.unmodifiableList(networks);
-        }
-
-        public List<String> getNetworks() {
-            return networks;
-        }
-
-        public String getId() {
-            return id;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public String getSummary() {
-            return summary;
-        }
-
-        public String getDetails() {
-            return details;
-        }
-
-        public boolean isTimeout() {
-            return timeout;
-        }
-
-        public Object get(String parameter) {
-            return params.get(parameter);
-        }
-
-        public Map<String, Object> getParams() {
-            return params;
-        }
-
-        public Date getTimestamp() {
-            return timestamp;
-        }
-
-        @Override
-        public PeerInfo alive() {
-            return alive(name);
-        }
-
-        @Override
-        public PeerInfo alive(String name) {
-            PeerInfoImpl info = new PeerInfoImpl(networks, id, name, summary, details, params);
-            mPeerCache.put(info.id, info);
-            return info;
-        }
-
-        @Override
-        public PeerInfo timeout() {
-            PeerInfoImpl info = new PeerInfoImpl(timestamp, networks, id, name, summary, details, params );
-            mPeerCache.put(info.id, info);
-            return info;
-        }
-
-        @Override
-        public PeerInfo update(String name, String summary, String details, Map<String, Object> params) {
-            PeerInfoImpl info = new PeerInfoImpl(networks, id, name, summary, details, params);
-            mPeerCache.put(info.id, info);
-            return info;
-        }
-
-        @Override
-        public String toString() {
-            return summary;
-        }
-    }
-
-    /**
-     * Load PeerInfo cache
-     */
-    public static final class LoadPeerInfoCache extends P2PTask<List<PeerInfoImpl>> {
-
-        public LoadPeerInfoCache(String root) {
-            super(root);
-        }
-
-        @Override
-        protected List<PeerInfoImpl> doInBackground() {
-            return P2PUtils.readList(mRoot, P2P.FILE_PEERINFO_LIST, PeerInfoImpl.class);
-        }
-
-        @Override
-        protected void onFinished(List<PeerInfoImpl> result) {
-            for(PeerInfoImpl info : result) {
-                if(!mPeerCache.containsKey(info.id)) {
-                    mPeerCache.put(info.id, info);
-                }
-            }
-        }
-    }
-
-    /**
-     * Store PeerInfo cache
-     */
-    public static final class StorePeerInfoCache extends P2PTask<Void> {
-
-        public StorePeerInfoCache(String root) {
-            super(root);
-        }
-
-        @Override
-        protected Void doInBackground() {
-            P2PUtils.writeObject(mRoot, P2P.FILE_PEERINFO_LIST,
-                    new ArrayList<>(mPeerCache.values()));
-            return null;
-        }
-
-        @Override
-        protected void onFinished(Void result) {
-            Log.i(TAG, "Stored peerinfo list");
-        }
-
-    }
 }

@@ -1,10 +1,20 @@
 package org.discoos.signal;
 
-public final class Event {
+public class Event {
 
     private final Object mSignal;
     private final Object mSource;
-    private final Observable mObservable;
+    private final Object mObservable;
+
+    /**
+     * Constructs a new instance of this class.
+     *
+     * @param signal the signal
+     * @param source the object which fired the event
+     */
+    public Event(Object signal, Object source) {
+        this(signal, source, null);
+    }
 
     /**
      * Constructs a new instance of this class.
@@ -13,7 +23,7 @@ public final class Event {
      * @param observable the observable object
      * @param source the object which fired the event
      */
-    public Event(Object signal, Observable observable, Object source) {
+    public Event(Object signal, Object source, Object observable) {
         mSignal = signal;
         mSource = source;
         mObservable = observable;
@@ -23,12 +33,15 @@ public final class Event {
         return mSignal;
     }
 
+
     public Object getSource() {
         return mSource;
     }
 
-    public Observable getObservable() {
+    public Object getObservable() {
         return mObservable;
     }
+
+
 
 }

@@ -31,7 +31,6 @@ import android.os.Build;
 import android.util.Log;
 
 import org.alljoyn.bus.AboutDataListener;
-import org.alljoyn.bus.BusAttachment;
 import org.alljoyn.bus.ErrorReplyBusException;
 import org.alljoyn.bus.Variant;
 import org.alljoyn.bus.Version;
@@ -74,14 +73,17 @@ public final class P2PAboutData implements AboutDataListener {
 
     static byte[] mAppId;
 
-    final String mBusName;
+    /**
+     * Bus attachment unique name
+     */
+    final String mUniqueName;
 
     /**
      * Constructor
-     * @param bus BusAttachment instance
+     * @param uniqueName Bus attachment unique name
      */
-    public P2PAboutData(BusAttachment bus) {
-        mBusName = bus.getUniqueName();
+    public P2PAboutData(String uniqueName) {
+        mUniqueName = uniqueName;
     }
 
     @Override
@@ -102,25 +104,31 @@ public final class P2PAboutData implements AboutDataListener {
 
     private Map<String, Variant> buildAboutData() {
         Map<String, Variant> aboutData = new HashMap<>();
-        aboutData.put(APP_ID, new Variant(getAppId()));
-        aboutData.put(APP_NAME, new Variant(P2P.getApplication().getName()));
-        aboutData.put(DEFAULT_LANGUAGE, new Variant(new String("en")));
-        aboutData.put(MODEL_NUMBER, new Variant(new String(Build.MODEL)));
-        aboutData.put(SUPPORTED_LANGUAGES, new Variant(new String[] { "en" }));
-        aboutData.put(SOFTWARE_VERSION, new Variant(P2P.getApplication().getVersion()));
-        aboutData.put(HARDWARE_VERSION, new Variant(new String(Build.SERIAL)));
-        aboutData.put(AJ_SOFTWARE_VERSION, new Variant(Version.get()));
-        aboutData.put(SUPPORT_URL, new Variant(P2P.getApplication().getSupportUrl()));
-        aboutData.put(DEVICE_ID, new Variant(new String(Build.SERIAL)));
-        aboutData.put(DEVICE_NAME, new Variant(new String(Build.DEVICE)));
-        aboutData.put(DEVICE_BRAND, new Variant(new String(Build.BRAND)));
-        aboutData.put(MANUFACTURER, new Variant(P2P.getApplication().getManufacturer()));
-        aboutData.put(DESCRIPTION, new Variant(P2P.getApplication().getDescription()));
-        aboutData.put(INET_4_ADDRESS, new Variant( P2PUtils.getWifiIpv4() ));
-        aboutData.put(INET_6_ADDRESS, new Variant(P2PUtils.getWifiIpv6()));
-        aboutData.put(BUS_UNIQUE_NAME, new Variant(mBusName));
+        try {
 
-        aboutData.putAll(P2PUtils.getOwnerInfo());
+            aboutData.put(APP_ID, new Variant(getAppId()));
+            aboutData.put(APP_NAME, new Variant(P2P.getContext().getName()));
+            aboutData.put(DEFAULT_LANGUAGE, new Variant(new String("en")));
+            aboutData.put(MODEL_NUMBER, new Variant(new String(Build.MODEL)));
+            aboutData.put(SUPPORTED_LANGUAGES, new Variant(new String[]{"en"}));
+            aboutData.put(SOFTWARE_VERSION, new Variant(P2P.getContext().getVersion()));
+            aboutData.put(HARDWARE_VERSION, new Variant(new String(Build.SERIAL)));
+            aboutData.put(AJ_SOFTWARE_VERSION, new Variant(Version.get()));
+            aboutData.put(SUPPORT_URL, new Variant(P2P.getContext().getSupportUrl()));
+            aboutData.put(DEVICE_ID, new Variant(new String(Build.SERIAL)));
+            aboutData.put(DEVICE_NAME, new Variant(new String(Build.DEVICE)));
+            aboutData.put(DEVICE_BRAND, new Variant(new String(Build.BRAND)));
+            aboutData.put(MANUFACTURER, new Variant(P2P.getContext().getManufacturer()));
+            aboutData.put(DESCRIPTION, new Variant(P2P.getContext().getDescription()));
+            aboutData.put(INET_4_ADDRESS, new Variant(P2PUtils.getWifiIpv4()));
+            aboutData.put(INET_6_ADDRESS, new Variant(P2PUtils.getWifiIpv6()));
+            aboutData.put(BUS_UNIQUE_NAME, new Variant(mUniqueName));
+
+            aboutData.putAll(P2PUtils.getOwnerInfo());
+
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to build AboutData", e);
+        }
 
         return aboutData;
 
@@ -144,7 +152,7 @@ public final class P2PAboutData implements AboutDataListener {
 
     public synchronized static byte[] getAppId() {
         if (mAppId == null) {
-            File installation = new File(P2P.getApplication().getFilesDir(), "INSTALLATION");
+            File installation = new File(P2P.getFilesDir(), "INSTALLATION");
             try {
                 if (!installation.exists()) {
                     writeInstallationFile(installation);
